@@ -19,13 +19,13 @@ It gives you and your team a real-time syntax translator and performance guide r
 Install directly from your repository:
 
 ```bash
-pip install git+https://github.com/your-org/rosie-df.git
+pip install git+https://github.com/Denvermax19/rosie-df.git
 ```
 
 Or clone and install in editable mode:
 
 ```bash
-git clone https://github.com/your-org/rosie-df.git
+git clone https://github.com/Denvermax19/rosie-df.git
 cd rosie-df
 pip install -e .
 ```
