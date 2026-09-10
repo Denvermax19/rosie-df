@@ -110,4 +110,3 @@ Adding new recipes or engines (e.g., DuckDB, SQL) is as simple as editing `rosie
 ## 📄 License
 
 MIT License. Free to use, adapt, and share across your data teams.
-```
