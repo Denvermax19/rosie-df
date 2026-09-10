@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: rosie-df
+Version: 0.1.0
+Summary: High-performance DataFrame Rosetta Stone powered by Polars
+Description-Content-Type: text/markdown
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: polars>=1.0.0
+
+Cheatsheet tool mapping syntax across Pandas, Polars, and PySpark.

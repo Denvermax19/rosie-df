@@ -1,0 +1,279 @@
+operations:
+  # ==========================================
+  # 1. INSPECT (category: "inspect")
+  # ==========================================
+  - id: read_data
+    name: "Read Data (CSV)"
+    category: "inspect"
+    pandas: "pd.read_csv('file.csv')"
+    polars: "pl.read_csv('file.csv')\n# or pl.scan_csv('file.csv') for lazy"
+    pyspark: "spark.read.csv('file.csv', header=True, inferSchema=True)"
+    gotchas:
+      pandas: "Eager only; uses 5-10x memory of raw file size."
+      polars: "Use scan_csv() to optimize execution plans before loading."
+      pyspark: "inferSchema=True triggers two full reads of the dataset."
+
+  - id: view_rows
+    name: "Preview Rows (head)"
+    category: "inspect"
+    pandas: "df.head(5)"
+    polars: "df.head(5)"
+    pyspark: "df.show(5)"
+    gotchas:
+      pandas: "Returns a new DataFrame slice."
+      polars: "Runs without copying memory."
+      pyspark: "df.head(5) returns Row objects; use df.show(5) for tabular view."
+
+  - id: schema_info
+    name: "Schema & Types (info)"
+    category: "inspect"
+    pandas: "df.info()"
+    polars: "df.schema\n# or df.glimpse()"
+    pyspark: "df.printSchema()"
+    gotchas:
+      pandas: "df.info() prints directly to stdout; does not return an object."
+      polars: "No df.info(). Use df.glimpse() for compact single-screen view."
+      pyspark: "df.printSchema() prints tree structure to console."
+
+  - id: count_nulls
+    name: "Count Nulls"
+    category: "inspect"
+    pandas: "df.isnull().sum()"
+    polars: "df.null_count()"
+    pyspark: "df.select([F.count(F.when(F.col(c).isNull(), c)).alias(c) for c in df.columns])"
+    gotchas:
+      pandas: "Calculated column by column eagerly."
+      polars: "null_count() returns a 1-row DataFrame multithreaded."
+      pyspark: "Spark has no built-in null_count(); requires list comprehension."
+
+  - id: drop_duplicates
+    name: "Deduplication"
+    category: "inspect"
+    pandas: "df.drop_duplicates(subset=['id'])"
+    polars: "df.unique(subset=['id'])"
+    pyspark: "df.dropDuplicates(['id'])"
+    gotchas:
+      pandas: "Defaults to keep='first'."
+      polars: "Method is unique(), not drop_duplicates()."
+      pyspark: "Triggers global shuffle across nodes."
+
+  - id: describe_stats
+    name: "Summary Statistics"
+    category: "inspect"
+    pandas: "df.describe()"
+    polars: "df.describe()"
+    pyspark: "df.describe().show()"
+    gotchas:
+      pandas: "Includes percentiles 25, 50, 75 by default."
+      polars: "Returns a DataFrame with min, max, mean, std, null_count."
+      pyspark: "Computes count, mean, stddev, min, max eagerly."
+
+  # ==========================================
+  # 2. CLEAN (category: "clean")
+  # ==========================================
+  - id: filter_rows
+    name: "Filter Rows"
+    category: "clean"
+    pandas: "df[(df['age'] > 25) & (df['status'] == 'active')]"
+    polars: "df.filter((pl.col('age') > 25) & (pl.col('status') == 'active'))"
+    pyspark: "df.filter((F.col('age') > 25) & (F.col('status') == 'active'))"
+    gotchas:
+      pandas: "Missing parentheses around conditions causes bitwise precedence errors."
+      polars: "Never use Python and/or; use & and |."
+      pyspark: "SQL string syntax also allowed: df.filter('age > 25 AND status = \"active\"')."
+
+  - id: handle_nulls
+    name: "Drop or Fill Nulls"
+    category: "clean"
+    pandas: "df.dropna(subset=['col'])\ndf['col'].fillna(0)"
+    polars: "df.drop_nulls('col')\ndf.with_columns(pl.col('col').fill_null(0))"
+    pyspark: "df.dropna(subset=['col'])\ndf.fillna({'col': 0})"
+    gotchas:
+      pandas: "fillna in place modifies state; returns None if inplace=True."
+      polars: "fill_null() also supports strategies: 'forward', 'backward', 'mean'."
+      pyspark: "df.fillna() converts numeric targets automatically."
+
+  - id: cast_types
+    name: "Cast Data Types"
+    category: "clean"
+    pandas: "df['age'] = df['age'].astype('int64')"
+    polars: "df = df.with_columns(pl.col('age').cast(pl.Int64))"
+    pyspark: "df = df.withColumn('age', F.col('age').cast('long'))"
+    gotchas:
+      pandas: "Astype fails completely if column contains NaN for integer casts."
+      polars: "Use strict=False in cast() to turn invalid parses into nulls without error."
+      pyspark: "Invalid casts silently return null in Spark."
+
+  - id: rename_columns
+    name: "Rename Columns"
+    category: "clean"
+    pandas: "df.rename(columns={'old_name': 'new_name'})"
+    polars: "df.rename({'old_name': 'new_name'})"
+    pyspark: "df.withColumnRenamed('old_name', 'new_name')"
+    gotchas:
+      pandas: "Requires columns={} argument explicitly."
+      polars: "Renaming is zero-copy metadata update."
+      pyspark: "Chain withColumnRenamed multiple times or use select alias."
+
+  - id: string_cleaning
+    name: "String Cleaning (Trim / Lower)"
+    category: "clean"
+    pandas: "df['name'].str.strip().str.lower()"
+    polars: "df.with_columns(pl.col('name').str.strip_chars().str.to_lowercase())"
+    pyspark: "df.withColumn('name', F.lower(F.trim(F.col('name'))))"
+    gotchas:
+      pandas: "Accessor is .str; can be slow on large string series."
+      polars: "strip_chars() removes whitespace; strip_prefix() for prefixes."
+      pyspark: "Requires functions imported from pyspark.sql.functions as F."
+
+  # ==========================================
+  # 3. TRANSFORM (category: "transform")
+  # ==========================================
+  - id: add_column
+    name: "Add / Mutate Column"
+    category: "transform"
+    pandas: "df['bonus'] = df['salary'] * 0.1"
+    polars: "df.with_columns((pl.col('salary') * 0.1).alias('bonus'))"
+    pyspark: "df.withColumn('bonus', F.col('salary') * 0.1)"
+    gotchas:
+      pandas: "Can throw SettingWithCopyWarning on dataframe slices."
+      polars: "Place multiple expressions inside one with_columns() call for concurrency."
+      pyspark: "Chaining many withColumn calls degrades Catalyst optimizer plan."
+
+  - id: groupby_agg
+    name: "GroupBy & Aggregate"
+    category: "transform"
+    pandas: "df.groupby('dept').agg(avg_sal=('salary', 'mean')).reset_index()"
+    polars: "df.group_by('dept').agg(pl.col('salary').mean().alias('avg_sal'))"
+    pyspark: "df.groupBy('dept').agg(F.mean('salary').alias('avg_sal'))"
+    gotchas:
+      pandas: "Pandas creates index on group keys; must call reset_index()."
+      polars: "Ordering not preserved unless explicitly called with sort()."
+      pyspark: "Triggers wide network shuffle."
+
+  - id: join_tables
+    name: "Join Tables"
+    category: "transform"
+    pandas: "pd.merge(df1, df2, on='id', how='left')"
+    polars: "df1.join(df2, on='id', how='left')"
+    pyspark: "df1.join(df2, on='id', how='left')"
+    gotchas:
+      pandas: "Different keys use left_on='a', right_on='b'."
+      polars: "Different keys use left_on='a', right_on='b'."
+      pyspark: "Duplicate join columns remain in schema unless dropped or joined with array."
+
+  - id: reshape
+    name: "Reshape (Pivot / Melt)"
+    category: "transform"
+    pandas: "# Pivot wide:\ndf.pivot(index='id', columns='var', values='val')\n# Melt long:\ndf.melt(id_vars=['id'], value_vars=['a', 'b'])"
+    polars: "# Pivot wide:\ndf.pivot(on='var', index='id', values='val')\n# Melt long:\ndf.unpivot(index=['id'], on=['a', 'b'])"
+    pyspark: "# Pivot wide:\ndf.groupBy('id').pivot('var').sum('val')\n# Melt long:\ndf.selectExpr('id', 'stack(2, \"a\", a, \"b\", b) as (var, val)')"
+    gotchas:
+      pandas: "Pandas uses melt(); Polars 1.0+ renamed melt() to unpivot()."
+      polars: "Pivot requires eager DataFrame (not LazyFrame)."
+      pyspark: "Unpivot in Spark uses stack() expression via selectExpr."
+
+  - id: window_functions
+    name: "Window Functions (Rank)"
+    category: "transform"
+    pandas: "df['rank'] = df.groupby('dept')['salary'].rank(ascending=False)"
+    polars: "df.with_columns(pl.col('salary').rank(descending=True).over('dept').alias('rank'))"
+    pyspark: "w = Window.partitionBy('dept').orderBy(F.col('salary').desc())\ndf.withColumn('rank', F.rank().over(w))"
+    gotchas:
+      pandas: "Requires groupby followed by transform or rank."
+      polars: ".over() replaces complex joins without memory penalty."
+      pyspark: "Omitting partitionBy() loads all data into single node causing OOM."
+
+  # ==========================================
+  # 4. EDA (category: "eda")
+  # ==========================================
+  - id: univariate_counts
+    name: "Value Counts (Univariate)"
+    category: "eda"
+    pandas: "df['category'].value_counts(normalize=True)"
+    polars: "df['category'].value_counts(normalize=True)"
+    pyspark: "df.groupBy('category').count().withColumn('pct', F.col('count') / df.count())"
+    gotchas:
+      pandas: "Direct Series method."
+      polars: "Returns a DataFrame with columns [category, count]."
+      pyspark: "No native normalize param; calculate count / total."
+
+  - id: univariate_quantiles
+    name: "Quantiles / Percentiles (Univariate)"
+    category: "eda"
+    pandas: "df['age'].quantile([0.25, 0.5, 0.75])"
+    polars: "df.select([pl.col('age').quantile(0.5)])"
+    pyspark: "df.approxQuantile('age', [0.25, 0.5, 0.75], 0.01)"
+    gotchas:
+      pandas: "Calculates exact quantiles in-memory."
+      polars: "Supports exact quantile on Column/Series."
+      pyspark: "Uses Greenwald-Khanna approx algorithm; 0.01 is relative error."
+
+  - id: univariate_skew_kurt
+    name: "Skewness & Kurtosis (Univariate)"
+    category: "eda"
+    pandas: "skew = df['val'].skew()\nkurt = df['val'].kurt()"
+    polars: "df.select([pl.col('val').skew().alias('skew'), pl.col('val').kurtosis().alias('kurt')])"
+    pyspark: "df.select(F.skewness('val').alias('skew'), F.kurtosis('val').alias('kurt'))"
+    gotchas:
+      pandas: "Pandas calculates unbiased Fisher-Pearson kurtosis."
+      polars: "Zero-copy expression execution inside select."
+      pyspark: "Distributed computation via built-in functions."
+
+  - id: bivariate_corr
+    name: "Correlation Matrix (Bivariate)"
+    category: "eda"
+    pandas: "df[['col_a', 'col_b']].corr(method='pearson')"
+    polars: "df.select(pl.corr('col_a', 'col_b', method='pearson'))"
+    pyspark: "df.stat.corr('col_a', 'col_b', method='pearson')"
+    gotchas:
+      pandas: "corr() on full dataframe creates N x N matrix."
+      polars: "pl.corr() is an expression calculated between two columns."
+      pyspark: "stat.corr() works pairwise between two columns only."
+
+  - id: bivariate_crosstab
+    name: "Cross-Tabulation (Bivariate)"
+    category: "eda"
+    pandas: "pd.crosstab(df['cat_a'], df['cat_b'])"
+    polars: "df.pivot(on='cat_b', index='cat_a', values='cat_a', aggregate_function='len')"
+    pyspark: "df.stat.crosstab('cat_a', 'cat_b')"
+    gotchas:
+      pandas: "pd.crosstab is standalone function taking Series."
+      polars: "Polars builds cross-tab using pivot with aggregate_function='len'."
+      pyspark: "Native stat.crosstab returns a DataFrame."
+
+  - id: multivariate_cov
+    name: "Covariance (Multivariate)"
+    category: "eda"
+    pandas: "df[['a', 'b', 'c']].cov()"
+    polars: "df.select(pl.cov('a', 'b'))"
+    pyspark: "df.stat.cov('a', 'b')"
+    gotchas:
+      pandas: "Calculates full N x N covariance matrix."
+      polars: "Expression-based; compute pairs via pl.cov(col1, col2)."
+      pyspark: "stat.cov(col1, col2) calculates scalar covariance."
+
+  # ==========================================
+  # 5. EXPORT (category: "export")
+  # ==========================================
+  - id: save_parquet
+    name: "Export Parquet"
+    category: "export"
+    pandas: "df.to_parquet('output.parquet', compression='snappy')"
+    polars: "df.write_parquet('output.parquet', compression='snappy')"
+    pyspark: "df.write.mode('overwrite').parquet('output.parquet')"
+    gotchas:
+      pandas: "Requires pyarrow or fastparquet installed."
+      polars: "Native Rust multi-threaded writer with zstd/snappy."
+      pyspark: "Writes directory of partition files, not single file."
+
+  - id: save_csv
+    name: "Export CSV"
+    category: "export"
+    pandas: "df.to_csv('output.csv', index=False)"
+    polars: "df.write_csv('output.csv')"
+    pyspark: "df.write.mode('overwrite').csv('output.csv', header=True)"
+    gotchas:
+      pandas: "Always set index=False or it prepends extra unnamed column."
+      polars: "Never outputs row indexes."
+      pyspark: "Outputs part-* files in folder unless coalesced."
