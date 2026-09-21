@@ -5,8 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rosie-df"
 version = "0.1.0"
-description = "High-performance DataFrame Rosetta Stone powered by Polars"
+description = "Fast, interactive DataFrame syntax translator and cheatsheet for Pandas, Polars, and PySpark with built-in performance gotchas. Works in Jupyter & Terminal."
 readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "anandlenin", email = "anandijjina719@gmail.com" }
+]
 dependencies = [
     "pyyaml>=6.0",
     "polars>=1.0.0"
